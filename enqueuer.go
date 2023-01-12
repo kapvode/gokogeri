@@ -3,6 +3,8 @@ package gokogeri
 import (
 	"context"
 	"fmt"
+
+	"github.com/kapvode/gokogeri/internal/redisutil"
 )
 
 // Enqueuer puts jobs in queues.
@@ -24,20 +26,28 @@ func (e *Enqueuer) Enqueue(ctx context.Context, j *Job) error {
 
 	enc, err := j.encode()
 	if err != nil {
-		return fmt.Errorf("encode job: %w", err)
+		return fmt.Errorf("encode job: %v", err)
 	}
 
 	conn, err := e.cp.Conn(ctx)
 	if err != nil {
-		return fmt.Errorf("get conn: %w", err)
+		return fmt.Errorf("get conn: %v", err)
 	}
 	defer conn.Close()
 
-	_, err = conn.Do("SADD", "queues", j.enc.Queue)
-
-	_, err = conn.Do("LPUSH", "queue:"+j.enc.Queue, enc)
+	err = conn.Send("SADD", "queues", j.enc.Queue)
 	if err != nil {
-		return fmt.Errorf("enqueue job: %w", err)
+		return fmt.Errorf("send: %v", err)
+	}
+
+	err = conn.Send("LPUSH", "queue:"+j.enc.Queue, enc)
+	if err != nil {
+		return fmt.Errorf("send: %v", err)
+	}
+
+	_, err = redisutil.DoMany(conn, 2)
+	if err != nil {
+		return fmt.Errorf("enqueue job: %v", err)
 	}
 
 	return nil
