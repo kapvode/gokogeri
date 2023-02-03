@@ -2,6 +2,7 @@ package gokogeri
 
 import (
 	"math/rand"
+	"time"
 )
 
 // A QueueSet implements a strategy for deciding which queues should be checked first by a group of workers. The set
@@ -24,6 +25,8 @@ type RandomQueueSet struct {
 	names  []string
 	list   []string
 	random []string
+
+	rand *rand.Rand
 }
 
 // NewRandomQueueSet returns a new instance.
@@ -31,6 +34,7 @@ func NewRandomQueueSet() *RandomQueueSet {
 	return &RandomQueueSet{
 		list:   make([]string, 0),
 		random: make([]string, 0),
+		rand:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -53,7 +57,7 @@ func (qs *RandomQueueSet) Add(q string, weight int) {
 
 // GetQueues implements QueueSet.
 func (qs *RandomQueueSet) GetQueues() []string {
-	rand.Shuffle(len(qs.list), func(i, j int) {
+	qs.rand.Shuffle(len(qs.list), func(i, j int) {
 		tmp := qs.list[i]
 		qs.list[i] = qs.list[j]
 		qs.list[j] = tmp

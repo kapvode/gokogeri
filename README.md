@@ -87,13 +87,13 @@ Use a `RandomQueueSet` to process queues in random order, with the likelihood of
 // The high_priority queue has a 75% chance of being checked first.
 // The low_priority queue has a 25% chance of being checked first.
 
-var qs gokogeri.RandomQueueSet
+qs := gokogeri.NewRandomQueueSet()
 qs.Add("low_priority", 1)
 qs.Add("high_priority", 3)
 
 instances := 5
 node.ProcessQueues(
-    &qs,
+    qs,
     gokogeri.WorkerFunc(func(ctx context.Context, j *gokogeri.Job) error {
         var err error
 

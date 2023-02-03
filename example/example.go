@@ -67,12 +67,12 @@ func main() {
 		1,
 	)
 
-	var qs gokogeri.RandomQueueSet
+	qs := gokogeri.NewRandomQueueSet()
 	qs.Add("low_priority", 1)
 	qs.Add("high_priority", 3)
 
 	node.ProcessQueues(
-		&qs,
+		qs,
 		gokogeri.WorkerFunc(func(ctx context.Context, j *gokogeri.Job) error {
 			fmt.Printf("processing job: queue=%s class=%s id=%s\n", j.Queue(), j.Class(), j.ID())
 
