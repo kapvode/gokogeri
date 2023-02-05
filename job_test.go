@@ -24,6 +24,7 @@ func TestJobEncode(t *testing.T) {
 		job.SetID(jobID).
 			SetClass("RubyWorker").
 			SetQueue("ruby_jobs").
+			SetRetryTimes(3).
 			SetArgs([]interface{}{1, "User"}).
 			SetCreatedAt(createdAt)
 
@@ -33,7 +34,7 @@ func TestJobEncode(t *testing.T) {
 			"queue":      "ruby_jobs",
 			"args":       []interface{}{float64(1), "User"},
 			"created_at": sidekiq.Time(createdAt),
-			"retry":      true,
+			"retry":      float64(3),
 		}
 
 		err = job.setDefaults()
@@ -59,6 +60,8 @@ func TestJobEncode(t *testing.T) {
 		assert.Equal(jobID, job.ID())
 		assert.Equal("RubyWorker", job.Class())
 		assert.Equal("ruby_jobs", job.Queue())
+		assert.Equal(true, job.Retry())
+		assert.Equal(3, job.RetryTimes())
 		assert.Equal([]interface{}{1, "User"}, job.Args())
 		assert.Equal(createdAt, job.CreatedAt())
 		assert.WithinDuration(now, job.EnqueuedAt(), time.Second)
@@ -71,6 +74,8 @@ func TestJobEncode(t *testing.T) {
 		assert.Equal(jobID, jsonJob.ID())
 		assert.Equal("RubyWorker", jsonJob.Class())
 		assert.Equal("ruby_jobs", jsonJob.Queue())
+		assert.Equal(true, jsonJob.Retry())
+		assert.Equal(3, jsonJob.RetryTimes())
 		assert.Equal([]interface{}{float64(1), "User"}, jsonJob.Args())
 		assert.Equal(createdAt, jsonJob.CreatedAt())
 		assert.WithinDuration(now, jsonJob.EnqueuedAt(), time.Second)
@@ -122,6 +127,8 @@ func TestJobEncode(t *testing.T) {
 		assert.Len(job.ID(), 24)
 		assert.Equal("RubyWorker", job.Class())
 		assert.Equal("default", job.Queue())
+		assert.Equal(true, job.Retry())
+		assert.Equal(0, job.RetryTimes())
 		assert.Len(job.Args(), 0)
 		assert.WithinDuration(now, job.CreatedAt(), time.Second)
 		assert.Equal(job.CreatedAt(), job.EnqueuedAt())
@@ -134,8 +141,129 @@ func TestJobEncode(t *testing.T) {
 		assert.Len(jsonJob.ID(), 24)
 		assert.Equal("RubyWorker", jsonJob.Class())
 		assert.Equal("default", jsonJob.Queue())
+		assert.Equal(true, jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
 		assert.Len(jsonJob.Args(), 0)
 		assert.WithinDuration(now, jsonJob.CreatedAt(), time.Second)
 		assert.Equal(jsonJob.CreatedAt(), jsonJob.EnqueuedAt())
+	})
+
+	t.Run("SetRetryTimes(0) means retry=true", func(t *testing.T) {
+		t.Parallel()
+
+		assert := require.New(t)
+
+		var job Job
+		job.SetRetryTimes(0)
+
+		assert.True(job.Retry())
+		assert.Equal(0, job.RetryTimes())
+
+		enc, err := job.encode()
+		assert.NoError(err)
+
+		jsonJob, err := newJobFromJSON(enc)
+		assert.NoError(err)
+
+		assert.True(jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
+	})
+
+	t.Run("JSON retry=0 means retry=false", func(t *testing.T) {
+		t.Parallel()
+
+		assert := require.New(t)
+
+		enc := []byte(`{"retry":0}`)
+
+		jsonJob, err := newJobFromJSON(enc)
+		assert.NoError(err)
+
+		assert.False(jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
+	})
+
+	t.Run("SetRetry false", func(t *testing.T) {
+		t.Parallel()
+
+		assert := require.New(t)
+
+		var job Job
+		job.SetRetry(false)
+
+		assert.False(job.Retry())
+		assert.Equal(0, job.RetryTimes())
+
+		enc, err := job.encode()
+		assert.NoError(err)
+
+		jsonJob, err := newJobFromJSON(enc)
+		assert.NoError(err)
+
+		assert.False(jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
+	})
+
+	t.Run("SetRetry true", func(t *testing.T) {
+		t.Parallel()
+
+		assert := require.New(t)
+
+		var job Job
+		job.SetRetry(true)
+
+		assert.True(job.Retry())
+		assert.Equal(0, job.RetryTimes())
+
+		enc, err := job.encode()
+		assert.NoError(err)
+
+		jsonJob, err := newJobFromJSON(enc)
+		assert.NoError(err)
+
+		assert.True(jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
+	})
+
+	t.Run("SetRetryTimes -5", func(t *testing.T) {
+		t.Parallel()
+
+		assert := require.New(t)
+
+		var job Job
+		job.SetRetryTimes(-5)
+
+		assert.False(job.Retry())
+		assert.Equal(0, job.RetryTimes())
+
+		enc, err := job.encode()
+		assert.NoError(err)
+
+		jsonJob, err := newJobFromJSON(enc)
+		assert.NoError(err)
+
+		assert.False(jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
+	})
+
+	t.Run("SetRetryTimes 999", func(t *testing.T) {
+		t.Parallel()
+
+		assert := require.New(t)
+
+		var job Job
+		job.SetRetryTimes(999)
+
+		assert.False(job.Retry())
+		assert.Equal(0, job.RetryTimes())
+
+		enc, err := job.encode()
+		assert.NoError(err)
+
+		jsonJob, err := newJobFromJSON(enc)
+		assert.NoError(err)
+
+		assert.False(jsonJob.Retry())
+		assert.Equal(0, jsonJob.RetryTimes())
 	})
 }

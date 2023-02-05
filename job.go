@@ -13,7 +13,7 @@ type redisJob struct {
 	Class string        `json:"class"`
 	Queue string        `json:"queue"`
 	Args  []interface{} `json:"args,omitempty"`
-	Retry bool          `json:"retry"`
+	Retry retryValue    `json:"retry"`
 
 	JobID      string  `json:"jid"`
 	CreatedAt  float64 `json:"created_at"`
@@ -25,6 +25,8 @@ type Job struct {
 
 	createdAt  time.Time
 	enqueuedAt time.Time
+
+	customRetryPolicy bool
 }
 
 func newJobFromJSON(data []byte) (*Job, error) {
@@ -88,6 +90,37 @@ func (j *Job) EnqueuedAt() time.Time {
 	return j.enqueuedAt
 }
 
+// Retry reports whether the job should be retried if it fails.
+func (j *Job) Retry() bool {
+	return j.enc.Retry.ok
+}
+
+// SetRetry configures whether the job should be retried if it fails.
+func (j *Job) SetRetry(retry bool) *Job {
+	j.customRetryPolicy = true
+	j.enc.Retry.ok = retry
+	return j
+}
+
+// RetryTimes returns the number of times the job should be retried, or 0 if the default value should be used.
+func (j *Job) RetryTimes() int {
+	return j.enc.Retry.times
+}
+
+// SetRetryTimes configures the number of times the job should be retried.
+// The minimum allowed value is 0 and the maximum 100. Values outside of that range will be ignored.
+//
+// Calling this function always enables retries, because 0 represents the default value for the number of retries. To
+// disable retries, use SetRetry(false).
+func (j *Job) SetRetryTimes(n int) *Job {
+	if n >= 0 && n <= 100 {
+		j.customRetryPolicy = true
+		j.enc.Retry.ok = true
+		j.enc.Retry.times = n
+	}
+	return j
+}
+
 func (j *Job) setDefaults() error {
 	if j.enc.Queue == "" {
 		j.enc.Queue = "default"
@@ -111,7 +144,9 @@ func (j *Job) setDefaults() error {
 		}
 	}
 
-	j.enc.Retry = true
+	if !j.customRetryPolicy {
+		j.enc.Retry.ok = true
+	}
 
 	return nil
 }
